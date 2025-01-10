@@ -6,72 +6,111 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     />
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"
-      defer
-    ></script>
-    <script
-      type="module"
-      src="script.js"
-      defer
-    ></script>
-    <!--  CSS -->
-
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=cloud_upload"
-    />
-
-    <link
-      rel="stylesheet"
-      href="style.css"
-    />
-    <title>Search Maps</title>
+    <title>Upload de Imagem com Coordenadas GPS</title>
+    <script src="https://cdn.jsdelivr.net/npm/piexifjs"></script>
   </head>
   <body>
-    <section class="app">
-      <header class="header">
-        <div class="input-file-container">
-          <div class="input-file">
-            <p class="input-file__name">Choose an image...</p>
-            <button
-              type="button"
-              class="input-file__button"
-            >
-              <span class="material-symbols-outlined"> cloud_upload </span>
-            </button>
-            <input
-              type="file"
-              name="avatar"
-              id="imageInput"
-              accept="image/*"
-            />
-          </div>
-          <img
-            src="https://i.ibb.co/0Jmshvb/no-image.png"
-            class="image-preview"
-            alt="preview image"
-          />
-        </div>
+    <h1>Upload de Imagem com Coordenadas GPS</h1>
+    <input
+      type="file"
+      id="imageInput"
+      accept="image/*"
+    />
+    <p id="info">Selecione uma imagem para ver as coordenadas GPS.</p>
+    <a
+      id="googleMapsLink"
+      href="#"
+      target="_blank"
+      style="display: none"
+      >Ver no Google Maps</a
+    >
+    <button
+      id="copyButton"
+      style="display: none"
+    >
+      Copiar Coordenadas
+    </button>
+    <img
+      class="image-preview"
+      alt="Pré-visualização da imagem"
+      style="display: block; max-width: 100%; margin-top: 20px"
+    />
 
-        <p id="info">Selecione uma imagem para extrair as coordenadas GPS.</p>
-      </header>
-      <main class="main">
-        <button
-          id="copyButton"
-          style="display: none"
-        >
-          Copiar Coordenadas
-        </button>
-        <br />
-        <a
-          id="googleMapsLink"
-          href="#"
-          target="_blank"
-          style="display: none"
-          >Ver no Google Maps</a
-        >
-      </main>
-    </section>
+    <script>
+      function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            const imageData = e.target.result;
+            const exifData = piexif.load(imageData);
+
+            // Obtendo coordenadas GPS
+            const gps = exifData["GPS"];
+            if (gps) {
+              const lat = gps[piexif.GPSIFD.GPSLatitude];
+              const lng = gps[piexif.GPSIFD.GPSLongitude];
+              const latRef = gps[piexif.GPSIFD.GPSLatitudeRef] || "N";
+              const lngRef = gps[piexif.GPSIFD.GPSLongitudeRef] || "E";
+
+              if (lat && lng) {
+                const latitude = convertToDecimal(lat, latRef);
+                const longitude = convertToDecimal(lng, lngRef);
+                const coordinates = `Coordenadas: ${latitude}, ${longitude}`;
+                const coordinatesCopy = `${latitude}, ${longitude}`;
+                document.getElementById("info").textContent = coordinates;
+
+                // Atualiza o link para Google Maps
+                const googleMapsLink =
+                  document.getElementById("googleMapsLink");
+                googleMapsLink.href = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                googleMapsLink.style.display = "inline-block";
+
+                // Exibe o botão de cópia
+                const copyButton = document.getElementById("copyButton");
+                copyButton.style.display = "inline-block";
+                copyButton.onclick = () => copyToClipboard(coordinatesCopy);
+              } else {
+                document.getElementById("info").textContent =
+                  "Não foi possível encontrar coordenadas GPS na imagem.";
+                document.getElementById("copyButton").style.display = "none";
+                document.getElementById("googleMapsLink").style.display =
+                  "none";
+              }
+            } else {
+              document.getElementById("info").textContent =
+                "Não foi possível encontrar metadados GPS na imagem.";
+            }
+
+            // Exibe a pré-visualização da imagem
+            const imagePreview = document.querySelector(".image-preview");
+            imagePreview.src = imageData;
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function convertToDecimal(coord, ref) {
+        const degrees = coord[0][0] / coord[0][1];
+        const minutes = coord[1][0] / coord[1][1];
+        const seconds = coord[2][0] / coord[2][1];
+        let decimal = degrees + minutes / 60 + seconds / 3600;
+        if (ref === "S" || ref === "W") {
+          decimal *= -1;
+        }
+        return decimal;
+      }
+
+      function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(
+          () => alert("Coordenadas copiadas para a área de transferência!"),
+          (err) => alert("Erro ao copiar coordenadas: " + err)
+        );
+      }
+
+      document
+        .getElementById("imageInput")
+        .addEventListener("change", handleImageUpload);
+    </script>
   </body>
 </html>
